@@ -37,9 +37,7 @@ impl ProxyRequests {
                   \r\n"
             }
             // Malformed request
-            ProxyRequests::Malformed => {
-                b"INVALID REQUEST\r\n"
-            }
+            ProxyRequests::Malformed => b"INVALID REQUEST\r\n",
         }
     }
 }

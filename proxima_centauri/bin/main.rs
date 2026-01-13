@@ -1,5 +1,5 @@
 use anyhow::Result;
-use proxy_centauri::Server;
+use proxima_centauri::Server;
 
 #[tokio::main]
 async fn main() -> Result<()> {

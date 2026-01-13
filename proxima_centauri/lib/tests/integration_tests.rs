@@ -1,11 +1,11 @@
-use crate::http_utils::response::ProxyResponse;
 use crate::Server;
+use crate::http_utils::response::ProxyResponse;
 use anyhow::Result;
-use httparse::{Response, EMPTY_HEADER};
+use httparse::{EMPTY_HEADER, Response};
 use std::sync::atomic::{AtomicU16, Ordering};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 use super::common::request::ProxyRequests;
 

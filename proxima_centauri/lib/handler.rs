@@ -1,22 +1,22 @@
-use crate::auth::{authenticate, parse_proxy_auth_token, Database};
+use crate::auth::{Database, authenticate, parse_proxy_auth_token};
 use crate::config::Config;
-use crate::statistics::Statistics;
+use crate::http_utils::response::ProxyResponse;
+use crate::statistics::{Limits, UsersStatistic};
 use crate::tunnel::connect_target;
-use anyhow::{bail, Result};
-use httparse::{Request, EMPTY_HEADER};
+use anyhow::{Result, bail};
+use httparse::{EMPTY_HEADER, Request};
 use std::sync::Arc;
-use std::time::{Duration};
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tracing::{debug, error};
-use crate::http_utils::response::ProxyResponse;
 
 pub async fn handle_connection(
     mut source: TcpStream,
     config: Arc<Config>,
     database: Arc<Database>,
-    statistics: Arc<Mutex<Statistics>>,
+    statistics: Arc<Mutex<UsersStatistic>>,
 ) -> Result<()> {
     let mut buff = [0u8; 1024];
 
@@ -53,11 +53,15 @@ pub async fn handle_connection(
             Some(proxy_auth_header) => {
                 let (user, password) = parse_proxy_auth_token(proxy_auth_header.value)?;
 
-                let is_auth = authenticate(&user, &password, &database);
+                if authenticate(&user, &password, &database) {
+                    let mut user_stats = statistics.lock().await;
 
-                if is_auth {
+                    user_stats.create_user(&user, Limits::with_low_concurrency());
+
                     let mut target = TcpStream::connect(request_path).await?;
 
+                    user_stats.inc_concurrency(&user);
+                    drop(user_stats);
                     let (ingress, egress) = connect_target(
                         &mut source,
                         &mut target,
@@ -65,9 +69,10 @@ pub async fn handle_connection(
                     )
                     .await?;
 
-                    let mut stats = statistics.lock().await;
-                    stats.add_ingress_traffic(&*user, ingress);
-                    stats.add_egress_traffic(&*user, egress);
+                    let mut user_stats = statistics.lock().await;
+                    user_stats.add_ingress_traffic(&user, ingress as u128);
+                    user_stats.add_egress_traffic(&user, egress as u128);
+                    user_stats.dec_concurrency(&user);
                 } else {
                     source
                         .write_all(ProxyResponse::Unauthorized.as_bytes())

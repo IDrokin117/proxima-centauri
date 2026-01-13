@@ -1,7 +1,7 @@
 use crate::http_utils::response::ProxyResponse;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::time::Duration;
-use tokio::io::{copy_bidirectional, AsyncWriteExt};
+use tokio::io::{AsyncWriteExt, copy_bidirectional};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 pub async fn connect_target(

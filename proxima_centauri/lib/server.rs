@@ -1,7 +1,7 @@
 use crate::auth::Database;
 use crate::config::{build_config, init};
 use crate::handler::handle_connection;
-use crate::statistics::Statistics;
+use crate::statistics::UsersStatistic;
 use anyhow::Result;
 use std::sync::Arc;
 use std::time::Duration;
@@ -22,18 +22,19 @@ impl Server {
         let config = Arc::new(build_config());
         let bind_addr = addr.unwrap_or_else(|| config.addr());
         let database = Arc::new(Database::new_persistence());
-        let statistics = Arc::new(Mutex::new(Statistics::new()));
+        let user_stats = Arc::new(Mutex::new(UsersStatistic::new()));
         let global_span = span!(Level::TRACE, "global-log-tracer");
         let _ = global_span.enter();
-        info!("Server started on {}", bind_addr);
-        let listener = TcpListener::bind(&bind_addr).await?;
-        let stats = statistics.clone();
+        let stats = user_stats.clone();
         tokio::spawn(async move {
             loop {
                 sleep(Duration::from_secs(10)).await;
                 info!(stats = format!("{}", stats.lock().await));
             }
         });
+        info!("Server started on {}", bind_addr);
+        let listener = TcpListener::bind(&bind_addr).await?;
+
         loop {
             let (socket, socket_addr) = listener.accept().await?;
             let socket_span = span!(
@@ -42,10 +43,10 @@ impl Server {
                 socket_addr = format!("{:?}", socket_addr)
             );
             let _guard = socket_span.enter();
-            trace!("Socket connection accepted");
+            info!("Socket connection accepted {socket_addr}");
             let connection_config = config.clone();
             let connection_database = database.clone();
-            let connection_statistics = statistics.clone();
+            let connection_statistics = user_stats.clone();
             tokio::spawn(async {
                 handle_connection(
                     socket,

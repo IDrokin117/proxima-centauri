@@ -1,9 +1,9 @@
 [package]
-name = "proxy_centauri"
+name = "proxima_centauri"
 version = "0.1.0"
 edition = "2024"
 authors = ["Igor Drokin"]
-repository = "https://github.com/IDrokin117/proxy-centauri"
+repository = "https://github.com/IDrokin117/proxima-centauri"
 license = "MIT"
 
 [dependencies]
