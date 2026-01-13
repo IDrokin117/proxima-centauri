@@ -1,3 +1,8 @@
-fn main() {
-    println!("Proxy centauri under active development");
+use anyhow::Result;
+use proxy_centauri::run;
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    run().await?;
+    Ok(())
 }
