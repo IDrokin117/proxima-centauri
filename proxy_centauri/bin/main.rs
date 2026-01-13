@@ -1,8 +1,8 @@
 use anyhow::Result;
-use proxy_centauri::run;
+use proxy_centauri::Server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    run().await?;
+    Server::run().await?;
     Ok(())
 }
