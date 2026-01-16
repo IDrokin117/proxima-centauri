@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
-use tracing::{Level, info, span, trace};
+use tracing::{debug, info, span, Level};
 
 pub struct Server {}
 
@@ -29,7 +29,10 @@ impl Server {
         tokio::spawn(async move {
             loop {
                 sleep(Duration::from_secs(10)).await;
-                info!(stats = format!("{}", stats.lock().await));
+                let stats_guard = stats.lock().await;
+                if !stats_guard.is_empty() {
+                    info!(stats = format!("{}", stats_guard));
+                }
             }
         });
         info!("Server started on {}", bind_addr);
@@ -43,7 +46,7 @@ impl Server {
                 socket_addr = format!("{:?}", socket_addr)
             );
             let _guard = socket_span.enter();
-            info!("Socket connection accepted {socket_addr}");
+            debug!("Socket connection accepted {socket_addr}");
             let connection_config = config.clone();
             let connection_database = database.clone();
             let connection_statistics = user_stats.clone();

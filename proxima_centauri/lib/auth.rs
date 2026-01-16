@@ -7,7 +7,7 @@ pub struct Database(HashMap<String, String>);
 impl Database {
     pub fn new_persistence() -> Database {
         let users = HashMap::from([
-            ("drokin_ii".to_string(), "o953zY7lnkYMEl5D".to_string()),
+            ("procent".to_string(), "o953zY7lnkYMEl5D".to_string()),
             ("admin".to_string(), "12345".to_string()),
         ]);
         Database(users)

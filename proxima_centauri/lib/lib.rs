@@ -6,7 +6,6 @@ mod server;
 mod statistics;
 mod tunnel;
 
-mod limiter;
 #[cfg(test)]
 mod tests;
 

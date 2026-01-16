@@ -1,11 +1,11 @@
-use crate::Server;
 use crate::http_utils::response::ProxyResponse;
+use crate::Server;
 use anyhow::Result;
 use httparse::{EMPTY_HEADER, Response};
 use std::sync::atomic::{AtomicU16, Ordering};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
-use tokio::time::{Duration, sleep};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::time::{sleep, Duration};
 
 use super::common::request::ProxyRequests;
 
@@ -146,6 +146,180 @@ async fn test_server_cleanup() -> Result<()> {
     assert!(
         listener.is_ok(),
         "Port should be freed after server cleanup"
+    );
+
+    Ok(())
+}
+
+struct MockTargetServer {
+    addr: String,
+    handle: tokio::task::JoinHandle<()>,
+}
+
+impl MockTargetServer {
+    async fn start_echo() -> Self {
+        let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let addr = format!("127.0.0.1:{}", port);
+        let addr_clone = addr.clone();
+
+        let handle = tokio::spawn(async move {
+            let listener = TcpListener::bind(&addr_clone).await.unwrap();
+            loop {
+                if let Ok((mut socket, _)) = listener.accept().await {
+                    tokio::spawn(async move {
+                        let mut buf = [0u8; 1024];
+                        loop {
+                            match socket.read(&mut buf).await {
+                                Ok(0) => break,
+                                Ok(n) => {
+                                    let _ = socket.write_all(&buf[..n]).await;
+                                }
+                                Err(_) => break,
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        sleep(Duration::from_millis(50)).await;
+        MockTargetServer { addr, handle }
+    }
+
+    async fn start_sender(bytes_to_send: usize) -> Self {
+        let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let addr = format!("127.0.0.1:{}", port);
+        let addr_clone = addr.clone();
+
+        let handle = tokio::spawn(async move {
+            let listener = TcpListener::bind(&addr_clone).await.unwrap();
+            if let Ok((mut socket, _)) = listener.accept().await {
+                let data = vec![0x41u8; bytes_to_send]; // 'A' bytes
+                let _ = socket.write_all(&data).await;
+                let _ = socket.shutdown().await;
+            }
+        });
+
+        sleep(Duration::from_millis(50)).await;
+        MockTargetServer { addr, handle }
+    }
+
+    fn addr(&self) -> &str {
+        &self.addr
+    }
+}
+
+impl Drop for MockTargetServer {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
+}
+
+fn connect_request_to(target: &str, auth: &str) -> Vec<u8> {
+    format!(
+        "CONNECT {} HTTP/1.1\r\n\
+         Host: {}\r\n\
+         Proxy-Authorization: Basic {}\r\n\
+         \r\n",
+        target, target, auth
+    )
+    .into_bytes()
+}
+
+#[tokio::test]
+async fn test_traffic_limit_exceeded() -> Result<()> {
+    let server = TestServer::start().await;
+    let target = MockTargetServer::start_sender(15_000).await;
+
+    let auth = "cHJvY2VudDpvOTUzelk3bG5rWU1FbDVE";
+    let request = connect_request_to(target.addr(), auth);
+
+    {
+        let mut socket = TcpStream::connect(server.addr()).await?;
+        socket.write_all(&request).await?;
+
+        let mut response = vec![0u8; 4096];
+        let n = socket.read(&mut response).await?;
+        response.truncate(n);
+
+        assert!(
+            response.starts_with(b"HTTP/1.1 200"),
+            "First connection should succeed"
+        );
+
+        let mut data = vec![0u8; 20_000];
+        let _ = socket.read(&mut data).await;
+    }
+
+    sleep(Duration::from_millis(100)).await;
+
+    let target2 = MockTargetServer::start_echo().await;
+    let request2 = connect_request_to(target2.addr(), auth);
+
+    {
+        let mut socket = TcpStream::connect(server.addr()).await?;
+        socket.write_all(&request2).await?;
+
+        let response = read_response(&mut socket).await?;
+        let expected = ProxyResponse::QuotaExceeded.as_bytes();
+
+        assert_eq!(
+            response, expected,
+            "Second connection should be rejected with 403"
+        );
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_concurrency_limit_exceeded() -> Result<()> {
+    let server = TestServer::start().await;
+
+    // Создаём 3 target сервера которые держат соединения открытыми
+    let target1 = MockTargetServer::start_echo().await;
+    let target2 = MockTargetServer::start_echo().await;
+    let target3 = MockTargetServer::start_echo().await;
+
+    let auth = "cHJvY2VudDpvOTUzelk3bG5rWU1FbDVE";
+
+    // Первое соединение
+    let mut socket1 = TcpStream::connect(server.addr()).await?;
+    socket1
+        .write_all(&connect_request_to(target1.addr(), auth))
+        .await?;
+    let mut resp1 = vec![0u8; 1024];
+    let n = socket1.read(&mut resp1).await?;
+    resp1.truncate(n);
+    assert!(
+        resp1.starts_with(b"HTTP/1.1 200"),
+        "First connection should succeed"
+    );
+
+    // Второе соединение
+    let mut socket2 = TcpStream::connect(server.addr()).await?;
+    socket2
+        .write_all(&connect_request_to(target2.addr(), auth))
+        .await?;
+    let mut resp2 = vec![0u8; 1024];
+    let n = socket2.read(&mut resp2).await?;
+    resp2.truncate(n);
+    assert!(
+        resp2.starts_with(b"HTTP/1.1 200"),
+        "Second connection should succeed"
+    );
+
+    // Третье соединение — должно быть отклонено (лимит = 2)
+    let mut socket3 = TcpStream::connect(server.addr()).await?;
+    socket3
+        .write_all(&connect_request_to(target3.addr(), auth))
+        .await?;
+    let response = read_response(&mut socket3).await?;
+    let expected = ProxyResponse::TooManyRequests.as_bytes();
+
+    assert_eq!(
+        response, expected,
+        "Third connection should be rejected with 429"
     );
 
     Ok(())

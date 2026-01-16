@@ -3,6 +3,8 @@ pub enum ProxyResponse {
     Unauthorized,
     ProxyAuthRequired,
     MethodNotAllowed,
+    TooManyRequests,
+    QuotaExceeded,
 }
 
 impl ProxyResponse {
@@ -14,6 +16,8 @@ impl ProxyResponse {
                 b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n"
             }
             ProxyResponse::MethodNotAllowed => b"HTTP/1.1 405 Method Not Allowed\r\n\r\n",
+            ProxyResponse::TooManyRequests =>  b"HTTP/1.1 429 Too Many Requests\r\n\r\n",
+            ProxyResponse::QuotaExceeded =>  b"HTTP/1.1 403 Forbidden\r\n\r\n",
         }
     }
 }
