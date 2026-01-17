@@ -11,7 +11,7 @@ pub(crate) struct StatsTable {
 }
 
 impl StatsTable {
-    pub(crate) fn total_traffic(&self) -> u128 {
+    pub(crate) const fn total_traffic(&self) -> u128 {
         self.ingress_traffic + self.egress
     }
 }
@@ -26,7 +26,7 @@ pub(crate) struct Limits {
 }
 impl Default for Limits {
     fn default() -> Self {
-        Limits {
+        Self {
             concurrency: LimitValue::Unrestricted,
             traffic: LimitValue::Unrestricted,
         }
@@ -35,23 +35,23 @@ impl Default for Limits {
 
 impl Limits {
     #[allow(dead_code)]
-    pub(crate) fn with_low_concurrency() -> Self {
-        Limits {
+    pub(crate) const fn with_low_concurrency() -> Self {
+        Self {
             concurrency: LimitValue::Restricted(2),
             traffic: LimitValue::Unrestricted,
         }
     }
 
     #[allow(dead_code)]
-    pub(crate) fn with_low_traffic() -> Self {
-        Limits {
+    pub(crate) const fn with_low_traffic() -> Self {
+        Self {
             concurrency: LimitValue::Unrestricted,
             traffic: LimitValue::Restricted(10_000),
         }
     }
 
-    pub(crate) fn with_low_limits() -> Self {
-        Limits {
+    pub(crate) const fn with_low_limits() -> Self {
+        Self {
             concurrency: LimitValue::Restricted(2),
             traffic: LimitValue::Restricted(10_000),
         }
@@ -61,10 +61,10 @@ pub(crate) struct Limiter {
     limits: Limits,
 }
 impl Limiter {
-    pub(crate) fn new(limits: Limits) -> Self {
-        Limiter { limits }
+    pub(crate) const fn new(limits: Limits) -> Self {
+        Self { limits }
     }
-    pub(crate) fn is_limit_exceed(&self, stats: &StatsTable) -> Result<(), LimitError> {
+    pub(crate) const fn is_limit_exceed(&self, stats: &StatsTable) -> Result<(), LimitError> {
         if self.is_concurrency_limit_exceed(stats.concurrency) {
             return Err(LimitError::ConcurrencyLimitExceed(stats.concurrency));
         }
@@ -74,13 +74,13 @@ impl Limiter {
         Ok(())
     }
 
-    fn is_traffic_limit_exceed(&self, total_traffic: u128) -> bool {
+    const fn is_traffic_limit_exceed(&self, total_traffic: u128) -> bool {
         match self.limits.traffic {
             LimitValue::Unrestricted => false,
             LimitValue::Restricted(value) => value < total_traffic,
         }
     }
-    fn is_concurrency_limit_exceed(&self, concurrency: u16) -> bool {
+    const fn is_concurrency_limit_exceed(&self, concurrency: u16) -> bool {
         match self.limits.concurrency {
             LimitValue::Unrestricted => false,
             LimitValue::Restricted(value) => value < concurrency,
@@ -95,7 +95,7 @@ pub(crate) struct UserContext {
 }
 impl UserContext {
     pub(crate) fn new(limits: Limits) -> Self {
-        UserContext {
+        Self {
             limiter: Limiter::new(limits),
             stats_table: StatsTable::default(),
             last_update_at: Instant::now(),
@@ -134,7 +134,7 @@ pub(crate) enum LimitError {
 
 impl Registry {
     pub(crate) fn new() -> Self {
-        Registry {
+        Self {
             inner: HashMap::new(),
         }
     }
@@ -156,12 +156,12 @@ impl Registry {
     pub(crate) fn inc_concurrency(&mut self, user: &str) {
         self.inner
             .entry(user.to_string())
-            .and_modify(|ctx| ctx.inc_concurrency());
+            .and_modify(UserContext::inc_concurrency);
     }
     pub(crate) fn dec_concurrency(&mut self, user: &str) {
         self.inner
             .entry(user.to_string())
-            .and_modify(|ctx| ctx.dec_concurrency());
+            .and_modify(UserContext::dec_concurrency);
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -176,7 +176,7 @@ impl Registry {
 
 impl Display for Registry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for (user, ctx) in self.inner.iter() {
+        for (user, ctx) in &self.inner {
             writeln!(
                 f,
                 "User `{}` stats. ingress: {}, egress: {}",
@@ -190,7 +190,7 @@ impl Display for Registry {
 
 impl Debug for Registry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for (user, ctx) in self.inner.iter() {
+        for (user, ctx) in &self.inner {
             writeln!(
                 f,
                 "User `{}` stats. ingress: {}, egress: {}",

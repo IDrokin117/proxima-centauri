@@ -61,7 +61,7 @@ pub async fn handle_connection(mut source: TcpStream, ctx: Context) -> Result<()
             registry.inc_concurrency(&user);
 
             match registry.check_limits(&user) {
-                Ok(_) => {
+                Ok(()) => {
                     drop(registry);
 
                     let mut target = TcpStream::connect(request_path).await?;
@@ -73,8 +73,8 @@ pub async fn handle_connection(mut source: TcpStream, ctx: Context) -> Result<()
                     .await?;
 
                     let mut registry = ctx.registry.lock().await;
-                    registry.add_ingress_traffic(&user, ingress as u128);
-                    registry.add_egress_traffic(&user, egress as u128);
+                    registry.add_ingress_traffic(&user, u128::from(ingress));
+                    registry.add_egress_traffic(&user, u128::from(egress));
                     registry.dec_concurrency(&user);
                 }
                 Err(err) => {

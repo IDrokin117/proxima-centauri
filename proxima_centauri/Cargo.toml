@@ -22,3 +22,6 @@ path = "lib/lib.rs"
 [[bin]]
 name = "procent"
 path = "bin/main.rs"
+
+[lints]
+workspace = true

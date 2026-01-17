@@ -13,7 +13,7 @@ pub(crate) struct Context {
 
 impl Context {
     pub(crate) fn new(config: Config, database: Database, registry: Registry) -> Self {
-        Context {
+        Self {
             config:Arc::new(config),
             database:Arc::new(database),
             registry:Arc::new(Mutex::new(registry)),
