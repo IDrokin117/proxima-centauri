@@ -34,6 +34,7 @@ impl Default for Limits {
 }
 
 impl Limits {
+    #[allow(dead_code)]
     pub(crate) fn with_low_concurrency() -> Self {
         Limits {
             concurrency: LimitValue::Restricted(2),
@@ -41,6 +42,7 @@ impl Limits {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn with_low_traffic() -> Self {
         Limits {
             concurrency: LimitValue::Unrestricted,
@@ -117,7 +119,7 @@ impl UserContext {
         self.last_update_at = Instant::now();
     }
 }
-pub(crate) struct UsersStatistic {
+pub(crate) struct Registry {
     inner: HashMap<String, UserContext>,
 }
 
@@ -130,9 +132,9 @@ pub(crate) enum LimitError {
 }
 
 
-impl UsersStatistic {
+impl Registry {
     pub(crate) fn new() -> Self {
-        UsersStatistic {
+        Registry {
             inner: HashMap::new(),
         }
     }
@@ -172,7 +174,7 @@ impl UsersStatistic {
     }
 }
 
-impl Display for UsersStatistic {
+impl Display for Registry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (user, ctx) in self.inner.iter() {
             writeln!(
@@ -186,7 +188,7 @@ impl Display for UsersStatistic {
     }
 }
 
-impl Debug for UsersStatistic {
+impl Debug for Registry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (user, ctx) in self.inner.iter() {
             writeln!(
@@ -297,7 +299,7 @@ mod tests {
 
     #[test]
     fn users_statistic_create_user_does_not_overwrite() {
-        let mut stats = UsersStatistic::new();
+        let mut stats = Registry::new();
 
         stats.create_user("alice", limits_with_traffic(1000));
         stats.add_ingress_traffic("alice", 500);
@@ -318,7 +320,7 @@ mod tests {
 
     #[test]
     fn users_statistic_concurrency_inc_dec() {
-        let mut stats = UsersStatistic::new();
+        let mut stats = Registry::new();
         stats.create_user("bob", limits_with_concurrency(2));
 
         stats.inc_concurrency("bob");

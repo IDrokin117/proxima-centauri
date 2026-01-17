@@ -1,5 +1,4 @@
 use std::sync::Once;
-use tracing_subscriber;
 
 static INIT: Once = Once::new();
 

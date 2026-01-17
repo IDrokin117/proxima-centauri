@@ -19,7 +19,7 @@ struct TestServer {
 impl TestServer {
     async fn start() -> Self {
         let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
-        let addr = format!("127.0.0.1:{}", port);
+        let addr = format!("127.0.0.1:{port}");
         let addr_clone = addr.clone();
 
         let handle = tokio::spawn(async move {
@@ -107,7 +107,7 @@ async fn test_successful_connect() -> Result<()> {
 
     let mut headers = [EMPTY_HEADER; 16];
     let mut response = Response::new(&mut headers);
-    response.parse(&*response_bytes)?;
+    response.parse(&response_bytes)?;
     assert_eq!(response.code.unwrap(), 200);
 
     Ok(())
@@ -132,7 +132,7 @@ async fn test_malformed_request() -> Result<()> {
 #[tokio::test]
 async fn test_server_cleanup() -> Result<()> {
     let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let addr = format!("127.0.0.1:{}", port);
+    let addr = format!("127.0.0.1:{port}");
 
     {
         let _server = TestServer::start().await;
@@ -159,7 +159,7 @@ struct MockTargetServer {
 impl MockTargetServer {
     async fn start_echo() -> Self {
         let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
-        let addr = format!("127.0.0.1:{}", port);
+        let addr = format!("127.0.0.1:{port}");
         let addr_clone = addr.clone();
 
         let handle = tokio::spawn(async move {
@@ -188,7 +188,7 @@ impl MockTargetServer {
 
     async fn start_sender(bytes_to_send: usize) -> Self {
         let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
-        let addr = format!("127.0.0.1:{}", port);
+        let addr = format!("127.0.0.1:{port}");
         let addr_clone = addr.clone();
 
         let handle = tokio::spawn(async move {
@@ -217,11 +217,10 @@ impl Drop for MockTargetServer {
 
 fn connect_request_to(target: &str, auth: &str) -> Vec<u8> {
     format!(
-        "CONNECT {} HTTP/1.1\r\n\
-         Host: {}\r\n\
-         Proxy-Authorization: Basic {}\r\n\
-         \r\n",
-        target, target, auth
+        "CONNECT {target} HTTP/1.1\r\n\
+         Host: {target}\r\n\
+         Proxy-Authorization: Basic {auth}\r\n\
+         \r\n"
     )
     .into_bytes()
 }
