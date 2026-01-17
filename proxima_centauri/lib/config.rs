@@ -1,5 +1,4 @@
 use std::sync::Once;
-use tracing_subscriber;
 
 static INIT: Once = Once::new();
 
@@ -24,8 +23,8 @@ pub fn init() {
 
 pub fn build_config() -> Config {
     Config {
-        port: dotenv::var("PROXY_PORT").unwrap_or(String::from("9090")),
-        host: dotenv::var("PROXY_HOST").unwrap_or(String::from("127.0.0.1")),
+        port: dotenv::var("PROXY_PORT").unwrap_or_else(|_| String::from("9090")),
+        host: dotenv::var("PROXY_HOST").unwrap_or_else(|_| String::from("127.0.0.1")),
         connection_timeout: 60,
     }
 }

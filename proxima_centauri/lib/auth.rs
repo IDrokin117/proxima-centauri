@@ -5,12 +5,12 @@ use std::collections::HashMap;
 pub struct Database(HashMap<String, String>);
 
 impl Database {
-    pub fn new_persistence() -> Database {
+    pub fn new_persistence() -> Self {
         let users = HashMap::from([
-            ("drokin_ii".to_string(), "o953zY7lnkYMEl5D".to_string()),
+            ("procent".to_string(), "o953zY7lnkYMEl5D".to_string()),
             ("admin".to_string(), "12345".to_string()),
         ]);
-        Database(users)
+        Self(users)
     }
 
     pub fn is_authenticated(&self, user: &str, password: &str) -> bool {
