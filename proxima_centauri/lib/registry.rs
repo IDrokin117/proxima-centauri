@@ -304,15 +304,11 @@ mod tests {
         stats.create_user("alice", limits_with_traffic(1000));
         stats.add_ingress_traffic("alice", 500);
 
-        // повторный вызов create_user не должен сбросить статистику
         stats.create_user("alice", limits_with_traffic(2000));
 
-        // проверяем что трафик сохранился
         let result = stats.check_limits("alice");
-        // лимит 1000, трафик 500 — должно быть Ok
         assert!(result.is_ok());
 
-        // добавим ещё трафика чтобы превысить оригинальный лимит 1000
         stats.add_ingress_traffic("alice", 600);
         let result = stats.check_limits("alice");
         assert!(matches!(result, Err(LimitError::TrafficLimitExceed(1100))));

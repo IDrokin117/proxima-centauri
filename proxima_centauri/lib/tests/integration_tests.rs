@@ -26,7 +26,6 @@ impl TestServer {
             Server::run_on_addr(Some(addr_clone)).await.ok();
         });
 
-        // Give server time to start
         sleep(Duration::from_millis(100)).await;
 
         TestServer { handle, addr }
@@ -194,7 +193,7 @@ impl MockTargetServer {
         let handle = tokio::spawn(async move {
             let listener = TcpListener::bind(&addr_clone).await.unwrap();
             if let Ok((mut socket, _)) = listener.accept().await {
-                let data = vec![0x41u8; bytes_to_send]; // 'A' bytes
+                let data = vec![0x41u8; bytes_to_send];
                 let _ = socket.write_all(&data).await;
                 let _ = socket.shutdown().await;
             }
@@ -275,14 +274,12 @@ async fn test_traffic_limit_exceeded() -> Result<()> {
 async fn test_concurrency_limit_exceeded() -> Result<()> {
     let server = TestServer::start().await;
 
-    // Создаём 3 target сервера которые держат соединения открытыми
     let target1 = MockTargetServer::start_echo().await;
     let target2 = MockTargetServer::start_echo().await;
     let target3 = MockTargetServer::start_echo().await;
 
     let auth = "cHJvY2VudDpvOTUzelk3bG5rWU1FbDVE";
 
-    // Первое соединение
     let mut socket1 = TcpStream::connect(server.addr()).await?;
     socket1
         .write_all(&connect_request_to(target1.addr(), auth))
@@ -295,7 +292,6 @@ async fn test_concurrency_limit_exceeded() -> Result<()> {
         "First connection should succeed"
     );
 
-    // Второе соединение
     let mut socket2 = TcpStream::connect(server.addr()).await?;
     socket2
         .write_all(&connect_request_to(target2.addr(), auth))
@@ -308,7 +304,6 @@ async fn test_concurrency_limit_exceeded() -> Result<()> {
         "Second connection should succeed"
     );
 
-    // Третье соединение — должно быть отклонено (лимит = 2)
     let mut socket3 = TcpStream::connect(server.addr()).await?;
     socket3
         .write_all(&connect_request_to(target3.addr(), auth))
