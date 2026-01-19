@@ -88,6 +88,7 @@ pub async fn handle_connection(mut source: TcpStream, ctx: Context) -> Result<()
                 }
                 Err(err) => {
                     registry.dec_concurrency(&user);
+                    drop(registry);
 
                     warn!(message = format!("{:?}", err));
                     match err {

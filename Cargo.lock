@@ -187,6 +187,7 @@ dependencies = [
  "csv",
  "dotenv",
  "httparse",
+ "parking_lot",
  "serde",
  "thiserror",
  "tokio",

@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
 use csv::Reader;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Mutex;
 use crate::registry::Limits;
 
 pub(crate) enum DBConnection {
@@ -104,15 +104,13 @@ impl Connection for CSVConnection {
                 let user: UserRecord = record?;
                 data.push(user);
             }
-            let mut guard = self.data.lock().unwrap();
-            *guard = data;
+            *self.data.lock() = data;
             Ok(())
         }
     }
 
     fn fetch(&self, username: &str) -> Result<Option<UserRecord>> {
-        let guard = self.data.lock().unwrap();
-        Ok(guard
+        Ok(self.data.lock()
             .iter()
             .find(|el| el.username == username)
             .cloned())
@@ -147,7 +145,7 @@ impl Backend {
     }
 
     pub(crate) fn fetch_user(&self, username: &str) -> Result<Option<UserRecord>> {
-        let mut guard = self.cache.lock().unwrap();
+        let mut guard = self.cache.lock();
         if guard.contains_key(username) {
             return Ok(guard.get(username).cloned());
         }
