@@ -33,7 +33,22 @@ impl Default for Limits {
     }
 }
 
+impl<T> From<Option<T>> for LimitValue<T>{
+    fn from(value: Option<T>) -> Self {
+        match value {
+            None => LimitValue::Unrestricted,
+            Some(v) => LimitValue::Restricted(v)
+        }
+    }
+}
+
 impl Limits {
+    pub(crate) fn new(concurrency: Option<u16>, traffic: Option<u128>) -> Self {
+        Limits {
+            concurrency: LimitValue::from(concurrency),
+            traffic: LimitValue::from(traffic),
+        }
+    }
     #[allow(dead_code)]
     pub(crate) const fn with_low_concurrency() -> Self {
         Self {
@@ -50,6 +65,7 @@ impl Limits {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) const fn with_low_limits() -> Self {
         Self {
             concurrency: LimitValue::Restricted(2),
@@ -131,15 +147,16 @@ pub(crate) enum LimitError {
     TrafficLimitExceed(u128),
 }
 
-
 impl Registry {
     pub(crate) fn new() -> Self {
         Self {
             inner: HashMap::new(),
         }
     }
-    pub(crate) fn create_user(&mut self, user: &str, limits: Limits)  {
-        self.inner.entry(user.to_string()).or_insert_with(|| UserContext::new(limits));
+    pub(crate) fn create_user(&mut self, user: &str, limits: Limits) {
+        self.inner
+            .entry(user.to_string())
+            .or_insert_with(|| UserContext::new(limits));
     }
 
     pub(crate) fn add_ingress_traffic(&mut self, user: &str, traffic_value: u128) {
@@ -265,7 +282,10 @@ mod tests {
         };
 
         let result = limiter.is_limit_exceed(&stats);
-        assert!(matches!(result, Err(LimitError::TrafficLimitExceed(11_000))));
+        assert!(matches!(
+            result,
+            Err(LimitError::TrafficLimitExceed(11_000))
+        ));
     }
 
     #[test]

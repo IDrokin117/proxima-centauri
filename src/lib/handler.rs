@@ -1,4 +1,4 @@
-use crate::auth::{authenticate, parse_proxy_auth_token};
+use crate::auth::parse_proxy_auth_token;
 use crate::context::Context;
 use crate::http_utils::response::ProxyResponse;
 use crate::registry::{LimitError, Limits};
@@ -50,14 +50,23 @@ pub async fn handle_connection(mut source: TcpStream, ctx: Context) -> Result<()
         Some(proxy_auth_header) => {
             let (user, password) = parse_proxy_auth_token(proxy_auth_header.value)?;
 
-            if !authenticate(&user, &password, &ctx.database) {
+            let db_user = ctx.backend.fetch_user(&user)?;
+            if db_user.is_none() {
                 source
                     .write_all(ProxyResponse::Unauthorized.as_bytes())
                     .await?;
+                return Ok(());
+            }
+            let db_user = db_user.unwrap();
+            if !db_user.is_authenticated(&password) {
+                source
+                    .write_all(ProxyResponse::Unauthorized.as_bytes())
+                    .await?;
+                return Ok(());
             }
 
             let mut registry = ctx.registry.lock().await;
-            registry.create_user(&user, Limits::with_low_limits());
+            registry.create_user(&user, Limits::from(db_user));
             registry.inc_concurrency(&user);
 
             match registry.check_limits(&user) {

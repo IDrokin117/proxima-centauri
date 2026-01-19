@@ -2,6 +2,7 @@
 
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/IDrokin117/proxy-centauri/actions/workflows/ci.yml/badge.svg)](https://github.com/IDrokin117/proxy-centauri/actions)
 
 > A high-performance proxy server with user-based authentication and traffic statistics.
 
@@ -16,9 +17,11 @@
 
 - 🔐 **User-based authentication** - Basic auth with credentials database
 - 📊 **Detailed statistics** - Per-user ingress/egress traffic monitoring
+- 🚦 **Rate limiting** - Concurrency and traffic limits per user
 - ⚡ **High performance** - Built with Tokio async runtime
-- 🧪 **Well tested** - Comprehensive integration test suite
+- 🧪 **Well tested** - 16 tests with integration coverage
 - 🔧 **Configurable** - Environment-based configuration
+- ✅ **CI/CD** - GitHub Actions with clippy + tests
 
 ## 🚀 Quick Start
 
@@ -93,7 +96,8 @@ proxy_centauri/
     ├── tunnel.rs         # TCP tunneling
     ├── auth.rs           # Authentication & database
     ├── config.rs         # Configuration management
-    ├── statistics.rs     # Traffic statistics
+    ├── registry.rs       # User registry with limits & stats
+    ├── context.rs        # Global application context
     ├── http_utils/       # HTTP utilities
     │   ├── request.rs    # Request helpers
     │   └── response.rs   # Response types
@@ -117,12 +121,20 @@ cargo test test_proxy_auth_required
 
 ### Test Coverage
 
+**Integration tests (8):**
 - ✅ Proxy authentication required (407)
 - ✅ Unauthorized access (401)
 - ✅ Method not allowed (405)
 - ✅ Successful CONNECT tunnel (200)
 - ✅ Malformed request handling
 - ✅ Server cleanup on drop
+- ✅ Traffic limit exceeded (403)
+- ✅ Concurrency limit exceeded (429)
+
+**Unit tests (8):**
+- ✅ Limiter logic (concurrency/traffic)
+- ✅ User context management
+- ✅ Limit checking priority
 
 ## 📊 Statistics
 
@@ -154,8 +166,10 @@ cargo check
 ### Linting
 
 ```bash
-cargo clippy --all-targets --all-features
+cargo clippy
 ```
+
+Configured with `pedantic + nursery` lints in `Cargo.toml`.
 
 ### Formatting
 
@@ -178,7 +192,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - [ ] Dynamic user management API
 - [ ] Persistent statistics storage
 - [ ] HTTP/2 support
-- [ ] Rate limiting per user
 - [ ] Docker containerization
 - [ ] Prometheus metrics export
 - [ ] Configuration hot-reload
